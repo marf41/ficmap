@@ -18,7 +18,7 @@
   <body>
       <div id="app" x-data x-init="fetch('/user').then(r => r.text()).then(u => { $store.logged.user = u; })">
         <div id="sidebarData" x-ref="data" x-data="{ editorOpen: true, mode: 'Draw', modes: [
-            'Draw', 'Edit', 'User' ], icons: [ 'tools', 'tool', 'user' ] }"
+            'Draw', 'Edit', 'User' ], icons: [ 'tools', 'tool', 'user' ], tracking: false }"
             x-init="$watch('mode', m => { if (modes.indexOf(m) != 0) { $dispatch('cursor'); } })"
             @mode.window="$store.mode = $event.detail">
             <div id="open" x-show="!editorOpen">
@@ -38,10 +38,24 @@
                               @click="fetch('/logout').then(r => r.text()).then(t => {
                                        $store.logged.status = 'Logged out.';
                               $store.logged.user = ''; })"
-                            title="Click to log out" class="logout" x-text="'User: ' + $store.logged.user"></span>
+                            title="Click to log out" class="logout" x-text="'User: ' + $store.logged.user"></button>
+                        <ul class="tools">
+                            <button class="ti ti-gps" :class="{ active:
+                                        tracking, berror: $store.geolocation.error.length > 0 }"
+                                    :title="$store.geolocation.error || 'Start tracking position.'"
+                                    @click="var g = $store.geolocation;
+                                        g.state = !g.state; geolocation.setTracking(g.state)"
+                                ></button>
+                            <button class="ti ti-file-import" @click="importPoly()"
+                                title="Import line from Polyline data."></button>
+                        </ul>
+                        <span x-text="$store.geolocation.error"></span>
                     </div>
                     <img id="fclogo" src="https://flyingcaravans.pl/images/fcg.gif" />
                 </div>
+                <div x-show="$store.geolocation.state" id="location">Location: <div
+                    x-text="$store.geolocation.coords[0] + ', ' + $store.geolocation.coords[1]"
+                    class="mouse-position"></div></div>
                 <div id="position">Cursor: </div>
                 <div id="user" x-show="$store.mode == 'User'">
                     <form id="login-form" x-data="{ user: '', passwd: '', mail: '' }"
@@ -77,7 +91,7 @@
                                 <small x-show="f.name" x-text="f.type"></small>
                                 <span x-html="f.info"></span><br />
                                 <small x-html="niceInfo(f)"></small><br />
-                                <ul id="tools">
+                                <ul class="tools">
                                     <template x-for="(tool,i) in tools" :key="i">
                                         <button class="tool"
                                             :class="className(tool)"
@@ -85,6 +99,16 @@
                                                 $dispatch('update')"
                                             x-text="tool.icon ? '' : tool.symbol"
                                             :title="tool.tooltip || tool.value"
+                                        ></button>
+                                    </template>
+                                </ul>
+                                <ul class="tools">
+                                    <template x-for="(s,i) in saves" :key="i">
+                                        <button class="tool"
+                                            :class="className(s, 'save', f, 'value')"
+                                            @click="setSave(s, f)"
+                                            x-text="s.icon ? '' : s.symbol"
+                                            :title="s.tooltip || s.value"
                                         ></button>
                                     </template>
                                 </ul>
@@ -220,6 +244,7 @@
         <div id="map" class="cell cell-map map"></div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/@ryangjchandler/spruce@2.x.x/dist/spruce.umd.js"></script>
+    <script type="text/javascript" src="/static/map.js"></script>
     <script type="text/javascript" src="/static/script.js"></script>
   </body>
 </html>

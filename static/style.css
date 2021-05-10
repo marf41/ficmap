@@ -109,3 +109,4 @@ input { padding: .1rem }
     white-space: nowrap;
 }
 .prop-color { grid-template-columns: .5fr .5fr }
+.berror { background-color: #C22; color: #000; border-color: #000 }

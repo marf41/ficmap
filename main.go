@@ -49,7 +49,7 @@ type Faction struct {
 }
 
 type User struct {
-    Username string `gorm:"primaryKey;uniqueIndex;unique;not null"`
+    Username string `gorm:"primaryKey;unique;not null"`
     Factions []*Faction `gorm:"many2many:user_factions;foreignKey:Username"`
 }
 

@@ -3,174 +3,33 @@ window.Spruce.store('selected', []);
 window.Spruce.store('mode', 'Draw');
 window.Spruce.store('logged', { status: '', user: '' });
 window.Spruce.store('features', [], true);
-var selected = new ol.Collection();
+window.Spruce.store('geolocation', { state: false, error: '', coords: [ '', '' ] });
+function locationChange(c) { Spruce.store('geolocation').coords = c; }
 var socket = io();
-var dp = { dataProjection: "EPSG:4326", featureProjection: "EPSG:3857" };
 socket.on("connect", () => { socket.send("Connect."); console.log("Socket connected."); });
 socket.on("message", data => { console.log(data); });
 socket.on("logged", data => { if (data != 'OK') { Spruce.store('logged').status = 'Wrong user or password.'; } });
-var defstyle = new ol.style.Style({
-    image: new ol.style.Circle({
-        radius: 6,
-        fill: new ol.style.Fill({ color: '#FFF6' }),
-        stroke: new ol.style.Stroke({ color: '#000A', width: 2 }),
-    }),
-    fill: new ol.style.Fill({ color: '#FFF6' }),
-    stroke: new ol.style.Stroke({ color: '#000A' }),
-});
-function colorStyle(base) { return function(f,res) {
-    if (f.color) {
-        var s = base.clone();
-        switch (f.type) {
-            case 'Point':
-                var img = new ol.style.Circle({
-                    radius: s.getImage().getRadius() || 6,
-                    fill: new ol.style.Fill({ color: f.color + '66' }),
-                    stroke: base.getStroke()
-                });
-                s.setImage(img);
-                break;
-            case 'Circle':
-            case 'Polygon':
-                s.setFill(new ol.style.Fill({ color: f.color + '66' })); break;
-            case 'Line':
-                s.setStroke(new ol.style.Stroke({ color: f.color + 'AA',
-                    width: base.getStroke().getWidth() || 3 })); break;
-        }
-        return s;
-    }
-    return base;
-} }
-var source = new ol.source.Vector({ wrapX: false });
-var select = new ol.interaction.Select({
-    wrapX: false,
-    layers: function(l) { var t = l.get('title'); var f = t == 'Draw'; return f },
-    style: colorStyle(new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: 12,
-            fill: new ol.style.Fill({ color: '#FFF6' }),
-            stroke: new ol.style.Stroke({ color: '#EC8A', width: 5 }),
-        }),
-        fill: new ol.style.Fill({ color: '#FFF6' }),
-        stroke: new ol.style.Stroke({ color: '#EC8A', width: 5 }),
-    })),
-});
-var modify = new ol.interaction.Modify({
-    features: selected,
-    // source: source,
-    style: new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: 10,
-            fill: new ol.style.Fill({ color: '#000' }),
-            stroke: new ol.style.Stroke({ color: '#EC8', width: 4 }),
-        }),
-        zIndex: Infinity,
-    }),
-});
-var SidebarControl = (function(Control) {
-    function SidebarControl(options) {
-        var opts = options || {};
-        var btn = document.createElement('button');
-        btn.innerHTML = '&rsaquo;'; btn.title = 'Show sidebar';
-        var div = document.createElement('div');
-        div.className = 'toggle-sidebar ol-unselectable ol-control';
-        div.appendChild(btn);
-        Control.call(this, { element: div, target: opts.target });
-        btn.addEventListener('click', this.handleSidebar.bind(this), false);
-    }
-    if (Control) SidebarControl.__proto__ = Control;
-    SidebarControl.prototype = Object.create(Control && Control.prototype);
-    SidebarControl.prototype.constructor = SidebarControl;
-    SidebarControl.prototype.handleSidebar = function handleSidebar() {
-        document.getElementById('sidebarData').__x.$data.editorOpen = true;
-    }
-    return SidebarControl;
-}(ol.control.Control));
-var mousePosition = new ol.control.MousePosition({ className: 'mouse-position',
-    coordinateFormat: ol.coordinate.createStringXY(4),
-    // projection: new ol.proj.toLonLat,
-    projection: 'EPSG:4326', undefinedHTML: '-',
-    target: document.getElementById('position') });
 var map = new ol.Map({
     target: 'map',
     layers: [
+        new ol.layer.Tile({ title: 'OSM', source: new ol.source.OSM(), zIndex: 0 }),
+        warsaw,
+        poland,
         new ol.layer.Tile({
-            title: 'OSM',
-            // type: 'base',
-            source: new ol.source.OSM(),
-            zIndex: 0,
-        }),
-        new ol.layer.Vector({
-            title: 'Warsaw',
-            style: new ol.style.Style({
-                fill: new ol.style.Fill({ color: '#000' }),
-                stroke: new ol.style.Stroke({ color: '#EC8' }),
-            }),
-            source: new ol.source.Vector({
-                format: new ol.format.GeoJSON(),
-                // url: 'https://raw.githubusercontent.com/andilabs/warszawa-dzielnice-geojson/master/warszawa-dzielnice.geojson',
-                url: '/static/warszawa-dzielnice.geojson',
-            }),
-            zIndex: 5,
-        }),
-        new ol.layer.Vector({
-            title: 'PL',
-            style: new ol.style.Style({
-                fill: new ol.style.Fill({ color: '#0006' }),
-                stroke: new ol.style.Stroke({ color: '#EC8', width: 5 }),
-            }),
-            source: new ol.source.Vector({
-                format: new ol.format.GeoJSON(),
-                url: '/static/pl.geojson',
-                // features: [ pl ],
-            }),
-            zIndex: 4,
-        }),
-        new ol.layer.Tile({
-            title: 'Toner',
-            source: new ol.source.Stamen({
-                layer: 'toner',
-            }),
-            zIndex: 1,
-        }),
-        new ol.layer.Vector({
-            title: 'Draw',
-            source: source,
-            style: colorStyle(defstyle),
-            zIndex: 10,
-        }),
-        new ol.layer.Graticule({
-            title: 'Graticule',
-            strokeStyle: new ol.style.Stroke({
-                color: '#EC88',
-                width: 2,
-                lineDash: [ 0.5, 4 ],
-            }),
-            wrapX: false,
-            zIndex: 100,
-        }),
+            title: 'Toner', zIndex: 1,
+            source: new ol.source.Stamen({ layer: 'toner' }) }),
+        drawLayer,
+        locationLayer,
+        graticule,
     ],
-    view: new ol.View({
-        center: [ 2345000.0, 6840000.0 ],
-        zoom: 6
-    }),
-    controls: [
-        new ol.control.Attribution({ collapsible: true, collapsed: true }),
-        new ol.control.Zoom({ zoomOutLabel: '-' }),
-        new ol.control.Rotate(),
-        new ol.control.FullScreen(),
-        new ol.control.ScaleLine(),
-        mousePosition,
-        new ol.control.ZoomToExtent({ tipLabel: 'Warsaw', extent: [ 2313000.0, 6870000.0, 2375000.0, 6815000.0 ] }),
-        new SidebarControl(),
-    ],
+    view: view,
+    controls: defControls,
 });
-var layers = new ol.control.LayerSwitcher({
-    tipLabel: 'Layers',
-});
-map.addControl(layers);
+addInteraction('None');
+if (layers) { map.addControl(layers); }
 map.addInteraction(modify);
 map.addInteraction(select);
+addTooltip(map);
 select.on('select', function(e) {
     if (e.deselected) { e.deselected.forEach(function(s) { selected.remove(s) }); }
     if (e.selected) { e.selected.forEach(function(s) { selected.push(s) }); }
@@ -213,36 +72,6 @@ function addFeature(ef, value) {
     ef.info = geometryInfo(ef);
     getData(ef);
     document.getElementById('featuresList').__x.$data.features.push(ef);
-}
-function addInteraction(value) {
-    map.removeInteraction(draw);
-    map.removeInteraction(snap);
-    if (value != 'None') {
-        draw = new ol.interaction.Draw({
-            source: source,
-            type: value,
-            // freehand: true,
-            style: new ol.style.Style({
-                fill: new ol.style.Fill({ color: '#FFF6' }),
-                stroke: new ol.style.Stroke({ color: '#EC8A', width: 5 }),
-            }),
-            freehandCondition: ol.events.condition.shiftKeyOnly,
-        })
-        draw.on('drawend', function(e) { addFeature(e.feature, value); });
-        map.addInteraction(draw);
-    }
-    snap = new ol.interaction.Snap({ source: source });
-    map.addInteraction(snap);
-}
-addInteraction('None');
-function getGeo() {
-    var f = [];
-    source.forEachFeature(function(ft) { f.push(ft) });
-    var geo = f[0].getGeometry();
-    geo.transform('EPSG:3857', 'EPSG:4326');
-    var ft = new ol.Feature({ geometry: geo });
-    var gj = new ol.format.GeoJSON();
-    console.log(gj.writeFeature(ft));
 }
 
 function setupTools() {
@@ -299,12 +128,8 @@ function geometryInfo(f) {
     if (l) { f.geoLength = l; }
     return info;
 }
-var mp = document.getElementsByClassName('mouse-position')
-if (mp.length > 0) { mp[0].innerHTML = '-'; }
-function updateMapSize() { setTimeout(function() { map.updateSize() }, 300); }
 function selectFeature(f) { var sf = select.getFeatures(); sf.clear(); sf.push(f);
     selected.clear(); selected.push(f); selectFeatures(); }
-function centerView(f) { map.getView().fit(f.getGeometry(), { padding: [ 50, 50, 50, 50 ], duration: 250 }); }
 function setupEdit() {
     return {
         current: {},
@@ -313,7 +138,24 @@ function setupEdit() {
         unit: {}, mag: '1',
         units: [ { u: 'm', v: 1 }, { u: 'km', v: 1000 } ],
         arrowIcons: { l: 'caret-left', r: 'caret-right', u: 'caret-up', d: 'caret-down' },
-        className(tool) { return (this.current == tool ? 'tool-active ' : '') + (tool.icon ? 'ti ti-' + tool.icon : '') },
+        className(tool, cat, f, what) {
+            var curr = (f || this)[cat || 'current' ];
+            if (!curr && cat && this[cat + 's']) {
+                curr = this[cat + 's'][0]; if (what) { curr = curr[what]; } }
+            var active = curr == (what ? tool[what] : tool) ? 'tool-active ' : '';
+            return active + (tool.icon ? 'ti ti-' + tool.icon : '') },
+        setSave(s, f) {
+            f.save = s.value;
+            selectFeatures();
+        },
+        save: {},
+        saves: [
+            { tooltip: 'Not saved', value: 'ns', icon: 'cloud-off' },
+            { tooltip: 'Local save', value: 'local', icon: 'device-desktop' },
+            { tooltip: 'Remote save', value: 'remote', icon: 'bookmark' },
+            { tooltip: 'Faction', value: 'fac', icon: 'users' },
+            { tooltip: 'Public', value: 'public', icon: 'cloud-upload' },
+        ],
         tools: [
             { value: 'Center view', icon: 'focus-2', action(t,f,e) { centerView(f) } },
             { value: 'Rename', icon: 'edit', action(t,f,e) { f.name = prompt("New name") || f.name; selectFeatures(); } },
@@ -336,15 +178,6 @@ function setupEdit() {
             { type: 'Circle', props: [ 'r' ] },
         ],
     };
-}
-function importPoly() {
-    var pl = prompt('Import polyline') || ''; if (!pl || pl.length == 0) { return; }
-    var w = new ol.format.Polyline();
-    var fpl = w.readFeature(pl, dp);
-    // fpl.getGeometry().transform('EPSG:4326', 'EPSG:3857');
-    source.addFeature(fpl); var geo = fpl.getGeometry();
-    // if (geo[0] == geo[geo.length]) { addFeature(fpl, 'Polygon'); return; }
-    addFeature(fpl, 'LineString');
 }
 
 function init() { console.log(Spruce.store("features").length) }
@@ -447,35 +280,3 @@ function niceInfo(f) {
     }
     return ord;
 }
-
-var tooltipEl;
-tooltipEl = document.createElement('div');
-tooltipEl.className = 'ol-tooltip ol-tooltip-hover';
-var tooltip = new ol.Overlay({
-    element: tooltipEl,
-    offset: [ 0, 30 ],
-    positioning: 'top-center',
-});
-map.addOverlay(tooltip);
-function pointerMove(e) {
-    var uc = [];
-    map.getLayers().getArray().forEach(function(l) {
-        if (!l.getSource) { return; }
-        var source = l.getSource();
-        var name = '';
-        if (l.getProperties) { name = l.get('title') || ''; }
-        if (!source.getFeaturesAtCoordinate) { return; }
-        source.getFeaturesAtCoordinate(e.coordinate).forEach(function(f) {
-            uc.push(f.name || f.type || f.get('name') || name);
-        })
-    })
-    tooltipEl.innerHTML = uc.join('<br />');
-    tooltip.setPosition(e.coordinate);
-    if (uc.length > 0) {
-        tooltipEl.classList.remove('hidden');
-    } else {
-        tooltipEl.classList.add('hidden');
-    }
-}
-map.on('pointermove', pointerMove);
-map.getViewport().addEventListener('mouseout', function() { tooltipEl.classList.add('hidden'); });
