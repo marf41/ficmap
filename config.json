@@ -1,0 +1,22 @@
+{
+    "app": {
+        "name": "goyave_template",
+        "environment": "localhost",
+        "debug": true,
+        "defaultLanguage": "en-US"
+    },
+    "server": {
+        "host": "127.0.0.1",
+        "maintenance": false,
+        "protocol": "http",
+        "domain": "",
+        "port": 3033,
+        "httpsPort": 3034,
+        "timeout": 10,
+        "maxUploadSize": 10
+    },
+    "database": {
+        "connection": "sqlite3",
+        "name": "ficmap.sqlite"
+    }
+}

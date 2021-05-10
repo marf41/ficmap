@@ -1,0 +1,111 @@
+.b { border: 1px solid #EC8 }
+.br { border-radius: 4px }
+.bbr { border: 1px solid #EC8; border-radius: 4px }
+
+.gr { display: grid; grid-auto-flow: row }
+.gc { display: grid; grid-auto-flow: column }
+
+html, body { height: 100%; margin: 0; font-family: 'Poiret One', cursive !important; font-weight: bold; background-color: #000 }
+#app { height: 100%; width: 100%; background-color: #000 }
+#open { position: absolute; top: 1rem; left: 1rem; height: 1rem; width: 1rem }
+.cell { height: 100vh }
+.cell-map { float: none; overflow: hidden }
+.cell-edit {
+    float: left; width: 35%;
+    box-shadow: 0 16px 16px #EC8;
+    padding: 1rem;
+    z-index: 10; position: relative;
+    background-color: #000; color: #EC8;
+}
+@media screen and (max-width: 760px) {
+    .cell-edit { width: 50%; position: absolute; top: 0; bottom: 0; left: 0 }
+}
+@media screen and (max-width: 480px) {
+    .cell-edit { width: 70%; position: absolute; top: 0; bottom: 0; left: 0 }
+}
+.toggle-sidebar { top: 8em; left: .5em }
+#close { width: 100%; font-variant: small-caps }
+
+.ol-control { background-color: #000 }
+.ol-control:hover { background-color: #EC8 }
+.ol-control button, .ol-scale-line { background-color: #EC8; color: #000 }
+.ol-control button:hover, .ol-control button:focus { background-color: #000; color: #EC8 }
+.ol-scale-line-inner { border-color: #000; color: #000 }
+.layer-switcher .panel { background-color: #000; color: #EC8; border-color: #EC8 }
+select { background-color: #000; border: 1px solid #EC8; border-radius: 4px }
+.ol-attribution:not(.ol-collapsed) { background-color: #0009 }
+.ol-attribution ul { color: #EC8; text-shadow: none }
+.ol-attribution button span { font-variant: none }
+
+form, input, label { width: 100% }
+button, input { font-weight: bold; font-variant: small-caps }
+button, input { border: 1px solid #EC8; background-color: #000; color: #EC8; border-radius: 4px }
+button:hover, #login-button:hover { border: 1px solid #000; background-color: #EC8; color: #000 }
+label { font-variant: small-caps }
+input { padding: .1rem }
+#login-button { width: 2em }
+
+#tools, #editTools, .tools, .tools-main { display: grid; grid-gap: 0; width: 100%; grid-auto-flow: column; font-size: 1.2rem }
+#tools button, #editTools button, .tools-main button { height: 2rem }
+.active, .tool-active { background-color: #EC8; color: #000; border-color: #000 }
+.active:hover, .tool-active:hover { border-color: #EC8 }
+#featuresList { display: grid; border: 1px solid #EC8; border-radius: 4px; overflow: auto; margin-top: .2rem }
+#featuresList div { margin: .1rem .1rem; display: grid; grid-gap: 0; grid-auto-flow: column; grid-auto-columns: .01fr 1fr .1fr .1fr .1fr }
+#featuresList div { cursor: pointer }
+#featuresList i { justify-self: center; align-self: center; margin-right: .2rem }
+#featuresList div div { grid-auto-flow: row; grid-auto-columns: 1fr }
+#featuresList div div span { overflow: hidden; text-overflow: ellipsis }
+#featuresList button { width: 2em }
+#featuresList .feature { border: 1px solid #000; border-radius: 4px }
+#featuresList .feature:hover { border-color: #EC8 }
+#featuresList .noFeatures { margin: 1rem }
+#featuresList .noFeatures:hover { border-color: #000 }
+.noSelection { padding: 1rem }
+
+#fclogo { margin: auto; max-height: 200px }
+#login-form { display: grid; grid-gap: .2rem; grid-template-columns: 1fr 1fr 2fr 0.5fr }
+
+#edit { display: grid; grid-gap: .2rem; grid-auto-flow: row; grid-template-rows: .1fr .1fr minmax(0, 1fr) .1fr }
+#featuresList { grid-auto-rows: .1fr; max-height: 75% }
+#copy { font-variant: small-caps; font-size: small; text-align: justify }
+#copy span { font-size: .6rem; text-align: center }
+.mouse-position { display: inline; font-family: monospace }
+
+#menu { display: grid; grid-gap: .2rem; grid-auto-flow: column; grid-auto-columns: .4fr .6fr }
+#menu ul { display: grid; grid-auto-flow: column }
+#menu ul button { height: 2rem }
+
+#editList { display: grid; grid-auto-flow: row; grid-auto-rows: .1fr; max-height: 75%; overflow: auto }
+#editList > div { border: 1px solid #EC8; border-radius: 4px; padding: .2rem }
+#editList > div > div > i { margin: .1rem 1rem }
+#editList > div > small { text-align: center }
+
+.editHeader { grid-auto-columns: .2fr 1fr .1fr }
+.editHeader .ti { padding: 0 .5rem }
+.editName { font-size: 1.2rem; background-color: #EC8; color: #000 }
+.props { grid-auto-columns: .1fr 1fr }
+.props input { font-family: monospace; text-align: right }
+.propUnits { text-align: right }
+.propLabel { min-width: 2rem }
+.logout { width: 100% }
+.propmarg { margin-bottom: .5rem }
+
+.arrows { display: grid; grid-template-columns: repeat(3, .2fr) .3fr .1fr; grid-template-rows: repeat(3, .33fr); margin-bottom: .5rem }
+.arrows .al { grid-column: 1; grid-row: 2 }
+.arrows .au { grid-column: 2; grid-row: 1 }
+.arrows .ad { grid-column: 2; grid-row: 3 }
+.arrows .ar { grid-column: 3; grid-row: 2 }
+.arrows .af { grid-column: 2; grid-row: 2 }
+.arrows .at { grid-column: 4; grid-row: 1 / 4 }
+.arrows .ac { grid-column: 5; grid-row: 1 / 4 }
+
+.ol-tooltip {
+    position: relative;
+    background-color: #0006;
+    border: 1px solid #EC8A;
+    border-radius: 4px;
+    color: #EC8;
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+.prop-color { grid-template-columns: .5fr .5fr }
