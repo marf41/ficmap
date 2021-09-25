@@ -1,0 +1,9 @@
+---
+tags: [sign, symbol, numerical, consistent, system, counting]
+category: Math
+version: "1.11"
+---
+<svg>
+  <line x1="10" y1="5" x2="10" y2="19" />
+  <line x1="14" y1="5" x2="14" y2="19" />
+</svg>

@@ -1,0 +1,10 @@
+---
+tags: [geometric, segment, link, connection]
+category: Design
+version: "1.11"
+---
+<svg>
+  <circle cx="6" cy="18" r="2" />
+  <circle cx="18" cy="6" r="2" />
+  <line x1="7.5" y1="16.5" x2="16.5" y2="7.5" />
+</svg>

@@ -1,0 +1,8 @@
+---
+tags: [command line, terminal, code]
+version: "1.0"
+---
+<svg>
+  <polyline points="5 7 10 12 5 17" />
+  <line x1="13" y1="17" x2="19" y2="17" />
+</svg>

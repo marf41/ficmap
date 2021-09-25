@@ -1,6 +1,6 @@
 {
     "app": {
-        "name": "goyave_template",
+        "name": "ficmap",
         "environment": "localhost",
         "debug": true,
         "defaultLanguage": "en-US"
@@ -17,6 +17,10 @@
     },
     "database": {
         "connection": "sqlite3",
-        "name": "ficmap.sqlite"
+        "name": "ficmap.sqlite",
+        "autoMigrate": true,
+        "config": {
+            "disableForeignKeyConstraintWhenMigrating": true
+        }
     }
 }

@@ -1,0 +1,10 @@
+---
+tags: [drag, move]
+category: Arrows
+version: "1.35"
+---
+<svg>
+  <path d="M18 15l3 -3l-3 -3" />
+  <circle cx="5" cy="12" r="2" />
+  <path d="M7 12h14" />
+</svg>

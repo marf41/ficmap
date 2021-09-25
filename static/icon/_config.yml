@@ -1,0 +1,24 @@
+source: src
+
+host: 0.0.0.0
+port: 4001
+
+plugins:
+  - jekyll-include-cache
+
+exclude:
+  - .idea
+  - package.json
+
+defaults:
+  - scope:
+      type: "icons"
+    values:
+      layout: icon
+      in-bg: true
+      tags: []
+      permalink: 'icons/:slug'
+
+collections:
+  icons:
+    output: true

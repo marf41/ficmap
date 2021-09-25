@@ -3,76 +3,84 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/css/ol.css" type="text/css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.7.0/css/ol.css" type="text/css">
     <link rel="stylesheet" href="https://unpkg.com/ol-layerswitcher@3.8.3/dist/ol-layerswitcher.css" />
     <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="/static/style.css" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Poiret&#43;One&amp;display=swap&amp;subset=latin-ext" />
     <link rel="stylesheet" href="https://unpkg.com/@tabler/icons@latest/iconfont/tabler-icons.min.css" />
-    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.5.0/build/ol.js"></script>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.7.0/build/ol.js"></script>
     <script src="https://unpkg.com/ol-layerswitcher@3.8.3"></script>
-    <script src="https://cdn.jsdelivr.net/gh/alpinejs/alpine@v2.8.2/dist/alpine.min.js" defer></script>
+    <script defer src="https://unpkg.com/alpinejs@3.4.0/dist/cdn.min.js"></script>
     <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
     <title>FlyMaps</title>
   </head>
   <body>
-      <div id="app" x-data x-init="fetch('/user').then(r => r.text()).then(u => { $store.logged.user = u; })">
+      <div id="app" x-data x-init="init(false, $dispatch)">
         <div id="sidebarData" x-ref="data" x-data="{ editorOpen: true, mode: 'Draw', modes: [
-            'Draw', 'Edit', 'User' ], icons: [ 'tools', 'tool', 'user' ], tracking: false }"
-            x-init="$watch('mode', m => { if (modes.indexOf(m) != 0) { $dispatch('cursor'); } })"
-            @mode.window="$store.mode = $event.detail">
-            <div id="open" x-show="!editorOpen">
-                <button x-on:click="editorOpen = !editorOpen; updateMapSize()">&gt;</button></div>
-            <div id="edit" x-show="editorOpen" class="cell cell-edit edit">
+            'Draw', 'Edit', 'User' ], icons: [ 'tools', 'tool', 'user' ], tracking: false, kiosk: false }"
+            x-init="$dispatch('mode', 'Draw'); $watch('editorOpen', e => { updateMapSize(); sidebarButton(e); });"
+            @mode.window="$store.mode = $event.detail;
+                           if (modes.indexOf($event.detail) != 0) { $dispatch('cursor'); }">
+            <div id="open" x-show="!$store.sidebar.open">
+                <button x-on:click="$store.sidebar.open = true; sidebarButton(true)">&gt;</button></div>
+            <div id="edit" x-transition x-show="$store.sidebar.open" class="cell cell-edit edit">
                 <div id="menu">
                     <div>
-                        <button id="close" title="Close sidebar" @click="editorOpen = false; updateMapSize()">Hide</button>
+                        <button
+                            @click="$store.sidebar.open = false; sidebarButton(false); updateMapSize()"
+                            id="close" title="Close sidebar">Hide</button>
                         <ul>
                             <template x-for="(m,i) in modes">
-                                <button @click="$store.mode = m" :title="m" :class="'ti ti-' +
+                                <button @click="$dispatch('mode', m)" :title="m" :class="'ti ti-' +
                                  icons[i] + ' ' + ($store.mode == m ?
                                         'active' : '')"></button>
                             </template>
                         </ul>
+                        <button x-show="$store.logged.admin" class="ti ti-list-check w100"
+                            @click="$dispatch('mode', 'admin')" title="Administration"
+                            :class="{ active: $store.mode == 'admin' }"></button>
                         <button x-show="$store.logged.user && $store.logged.user.length"
-                              @click="fetch('/logout').then(r => r.text()).then(t => {
-                                       $store.logged.status = 'Logged out.';
-                              $store.logged.user = ''; })"
+                            @click="fetch('/logout').then(r => r.text()).then(t => {
+                                $store.logged.status = 'Logged out.';
+                                $store.logged.admin = false;
+                                if ($store.mode == 'admin') { $dispatch('mode', 'user'); }
+                                $store.logged.user = ''; init(true); })"
                             title="Click to log out" class="logout" x-text="'User: ' + $store.logged.user"></button>
                         <ul class="tools">
                             <button class="ti ti-gps" :class="{ active:
                                         tracking, berror: $store.geolocation.error.length > 0 }"
                                     :title="$store.geolocation.error || 'Start tracking position.'"
-                                    @click="var g = $store.geolocation;
-                                        g.state = !g.state; geolocation.setTracking(g.state)"
+                                    @click="toggleGeolocation()"
                                 ></button>
-                            <button class="ti ti-file-import" @click="importPoly()"
-                                title="Import line from Polyline data."></button>
+                            <button class="ti ti-device-desktop" @click="kiosk = !kiosk; setKiosk(kiosk)"
+                                :class="{ active: kiosk }" title="Set kiosk mode."></button>
                         </ul>
                         <span x-text="$store.geolocation.error"></span>
                     </div>
                     <img id="fclogo" src="https://flyingcaravans.pl/images/fcg.gif" />
                 </div>
-                <div x-show="$store.geolocation.state" id="location">Location: <div
-                    x-text="$store.geolocation.coords[0] + ', ' + $store.geolocation.coords[1]"
-                    class="mouse-position"></div></div>
-                <div id="position">Cursor: </div>
+                <div>
+                    <div x-show="$store.geolocation.state" id="location">Location: <div
+                        x-text="$store.geolocation.coords[0] + ', ' + $store.geolocation.coords[1]"
+                        class="mouse-position"></div></div>
+                    <div id="position">Cursor: </div>
+                </div>
+                <div id="empty" x-show="!$store.mode"></div>
                 <div id="user" x-show="$store.mode == 'User'">
-                    <form id="login-form" x-data="{ user: '', passwd: '', mail: '' }"
+                    <form id="login-form" x-data="{ user: '', passwd: '' }"
                         x-show="!$store.logged.user || $store.logged.user.length == 0"
-                        x-on:submit.prevent="console.log(user, passwd, mail)">
+                        x-on:submit.prevent="console.log(user, passwd)">
                         <label for="form-user">User<input x-model="user" name="form-user" /></label>
                         <label for="form-passwd">Pass<input x-model="passwd"
                             type="password" name="form-passwd" /></label>
-                        <label for="form-mail">Mail<input x-model="mail"
-                            type="email" name="form-mail" /></label>
                         <input type="submit" value="&rsaquo;" title="Login" id="login-button"
                             @click.prevent="$store.logged.status = ''; var fd = new FormData();
                                 fd.append('user', user); fd.append('passwd', passwd);
                                 fetch('/login', { method: 'POST', body: fd })
                                 .then(r => r.text().then(u => {
                                         if (r.status > 200) { $store.logged.status = 'Wrong user or password.'; }
-                                        else { $store.logged.user = u; $store.logged.status = 'Logged as ' + u + '.'; }
+                                        else { loginAs(u); }
                                     }))" />
                     </form>
                     <span x-text="$store.logged.status"></span>
@@ -82,19 +90,34 @@
                         <template x-for="(f,i) in $store.selected">
                             <div><template x-if="!f.empty"><div class="gr">
                                 <div class="gc editHeader">
-                                    <button x-show="f.icon" :class="'ti ti-' +
-                                        f.icon" :title="f.type" @click="centerView(f)"></button>
-                                    <button x-text="f.name || f.type"
+                                    <button x-show="f.Icon" :class="'ti ti-' + f.Icon"
+                                        :title="f.Type + ' - click to change icon'"
+                                        @click="icons = !icons"></button>
+                                    <button x-text="f.Name || f.Type"
                                             class="editName" title="Rename"
-                                        @click="f.name = prompt('New name') || f.name; selectFeatures()"></button>
+                                        @click="rename(f)"></button>
                                 </div>
-                                <small x-show="f.name" x-text="f.type"></small>
+                                <button class="ti ti-x w100" x-show="icons"
+                                    title="Close icons selection"
+                                    @click="icons = false"></button>
+                                <input x-model="iconFilter" x-show="icons" type="text" />
+                                <template x-if="icons">
+                                    <div class="iconSel">
+                                        <template x-for="(i,n) in window.icons" :key="i">
+                                            <button @click="f.Icon = i; updateFeature(f)"
+                                                x-show="showIcon(i)"
+                                                :title="i" :class="'ti ti-' + i"></button>
+                                        </template>
+                                    </div>
+                                </template>
+                                <small x-show="f.Name" x-text="f.Type"></small>
                                 <span x-html="f.info"></span><br />
                                 <small x-html="niceInfo(f)"></small><br />
+                                <small x-html="niceOwner(f)"></small><br />
                                 <ul class="tools">
                                     <template x-for="(tool,i) in tools" :key="i">
                                         <button class="tool"
-                                            :class="className(tool)"
+                                            :class="className(tool, null, f)"
                                             @click="tool.action(tool,f,$el);
                                                 $dispatch('update')"
                                             x-text="tool.icon ? '' : tool.symbol"
@@ -102,28 +125,43 @@
                                         ></button>
                                     </template>
                                 </ul>
-                                <ul class="tools">
-                                    <template x-for="(s,i) in saves" :key="i">
-                                        <button class="tool"
-                                            :class="className(s, 'save', f, 'value')"
-                                            @click="setSave(s, f)"
-                                            x-text="s.icon ? '' : s.symbol"
-                                            :title="s.tooltip || s.value"
-                                        ></button>
+                                <ul class="tools spc" x-show="$store.logged.user && !f.GroupName">
+                                    <template x-for="(g,i) in perms" :key="i">
+                                        <div class="vtools">
+                                            <i :class="'ti ti-' + g.icon"></i>
+                                            <template x-for="(p,j) in saves"
+                                                      :key="j">
+                                                <button class="tool"
+                                                    :class="className(p,
+                                                            'Permissions', f,
+                                                            'value', g)"
+                                                    @click="setSave(g, p, f)"
+                                                    x-text="p.icon ? '' : p.symbol"
+                                                    :title="p.tooltip + ' - ' + g.tooltip"
+                                                ></button>
+                                            </template>
+                                        </div>
                                     </template>
                                 </ul>
+                                <button :title="f.GroupName ? 'Remove from group' : 'Add to group'"
+                                    @click="groupsButton(f)" :class="groupClass(f)"></button>
+                                <div x-show="groups">
+                                    <select :value="f.GroupName" id="fgroup" @input="setGroup(f, $event)">
+                                        <template x-for="(g,gi) in $store.features.groups">
+                                            <option :value="g.Name" x-text="g.Display || g.Name"></option>
+                                        </template>
+                                    </select>
+                                </div>
                                 <label for="fill" class="gc props prop-color">
                                     <span class="propLabel">Color</span>
-                                    <input name="fill" x-model="f.color"
-                                        @input="updateFeature(f)"
-                                        type="color" />
+                                    <input name="fill" x-model="f.Color"
+                                        @input="updateFeature(f)" type="color" />
                                 </label>
                                 <template x-for="(l,i) in fields" :key="i">
                                     <div>
                                         <template x-for="(p,j) in l.props" :key="j">
-                                            <div>
-                                                <label :for="p" x-show="f.type ==
-                                                    l.type" class="gc props">
+                                            <div class="propmarg">
+                                                <label :for="p" x-show="f.Type == l.type" class="gc props">
                                                     <span class="propLabel" x-text="p"></span>
                                                     <input :name="p" x-model="f[p]"
                                                         @input="updateFeature(f, $event)" />
@@ -149,17 +187,19 @@
                                         </template>
                                         <template x-for="(c,j) in f.coords" :key="j">
                                             <div class="propmarg">
-                                                <template x-for="(d,k) in [ 'x', 'y' ]">
-                                                        <label :for="d + j" class="gc props">
-                                                            <span class="propLabel" x-text="d + (j + 1)"></span>
-                                                            <input :name="d + j" x-model="c[k]"
-                                                                @input="updateFeature(f, $event)" />
-                                                            <button class="ti ti-arrows-maximize"
-                                                                :class="(arrows.f == f &&
-                                                                    arrows.i == j) ?  'tool-active' : ''"
-                                                                    @click="arrows = { f: f, i: j }"></button>
-                                                        </label>
-                                                </template>
+                                                <div class="gc propxy">
+                                                    <span class="propLabel"
+                                                          x-text="f.coords.length
+                                                          == 1 ? 'XY' : j + 1"></span>
+                                                    <template x-for="(d,k) in [ 'x', 'y' ]">
+                                                        <input :name="d + j" x-model="c[k]"
+                                                            @input="updateFeature(f, $event)" />
+                                                    </template>
+                                                    <button class="ti ti-arrows-maximize"
+                                                        :class="(arrows.f == f &&
+                                                            arrows.i == j) ?  'tool-active' : ''"
+                                                            @click="arrows = { f: f, i: j }"></button>
+                                                </div>
                                                 <div x-show="arrows.f == f && arrows.i == j" class="arrows">
                                                     <template x-for="(ad,ai) in [ 'l', 'u', 'd', 'r' ]">
                                                     <button :class="'ti ti-' + arrowIcons[ad] + ' a' + ad"
@@ -182,12 +222,20 @@
                                                             </template>
                                                         </div>
                                                     </div>
-                                                    <button class="ti ti-x ac" @click="arrows = {}"></button>
-                                                    <button @click="centerView(f)" title="Center view"
+                                                    <button @click="centerView(f, c)" title="Center view"
                                                         class="ti ti-focus-2 af"></button>
+                                                    <div class="gr ac">
+                                                        <button class="ti ti-x" @click="arrows = {}"></button>
+                                                        <button class="ti ti-trash"
+                                                            @click="f.coords.splice(j, 1); updateFeature(f)">
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </template>
+                                        <button x-show="f.Type == 'Polygon' || f.Type == 'Line'"
+                                            @click="f.coords.push(f.coords[f.coords.length-1]); updateFeature(f)"
+                                            class="ti ti-row-insert-bottom propadd"></button>
                                     </div>
                                 </template>
                             </div></template></div>
@@ -216,34 +264,111 @@
                                 :title="tool.tooltip || tool.value" x-show="!tool.hide || tool.value == current.show">#</button>
                         </template>
                     </ul>
+                    <div x-show="hint && hint.length" x-html="hint"></div>
+                    <div id="groupsList">
+                        <ul class="tools">
+                            <template x-for="d in $store.features.tree.maxDepth+1">
+                                <button x-text="d"
+                                    :class="depthFilter == (d - 1) ? 'active' : ''"
+                                    @click="depthFilter = d-1"></button>
+                            </template>
+                        </ul>
+                        <ul>
+                        <template x-for="(g,gi) in $store.features.flat" :key="g.ID">
+                            <li class="layer"
+                                x-show="g.Depth >= 0 && g.Depth <= depthFilter">
+                                <input :id="g.ID" type="checkbox" />
+                                <label :for="g.ID" :title="niceOwner(g) + '\n' + (g.Info || '')"
+                                    :style="'padding-left: ' + (g.Depth + 1) + 'rem'"
+                                    @click="toggleGroup(g, $event)"
+                                    x-text="g.Name"></label>
+                            </li>
+                        </template>
+                        </ul>
+                    </div>
                     <div id="featuresList" x-data="{ features: [], remove: {} }">
-                        <template x-for="f in features" :key="f.ol_uid">
+                        <template x-for="f in $store.features.list" :key="f.ol_uid">
                             <div @click="selectFeature(f)" class="feature"
                                 :class="{ 'active': $store.selected.indexOf(f) >= 0 }">
-                                <i x-show="f.icon" :class="'ti ti-' + f.icon"></i>
-                                <div>
-                                    <span x-text="f.name || f.type" :title="f.type"></span><br />
+                                <i x-show="f.Icon" :class="'ti ti-' + f.Icon"></i>
+                                <div class="featureInfo">
+                                    <span x-text="f.Name || f.Type" :title="f.Type"></span><br />
                                     <small x-html="f.info" :title="niceInfo(f)"></small></div>
-                                <button @click="centerView(f)" title="Center view" class="ti ti-focus-2"></button>
-                                <button x-show="remove == f" @click="removeFeature(f)" class="ti
-                                 ti-check"></button>
+                                <div class="gc">
+                                    <button @click="centerView(f)" title="Center view" class="ti ti-focus-2"></button>
+                                    <button x-show="remove == f" @click="removeFeature(f)" class="ti
+                                     ti-check"></button>
 
-                                <button x-show="remove == f" @click="remove = {}" class="ti ti-x"></button>
-                                <button x-show="remove != f" title="Edit this object"
-                                    @click="selectFeature(f); $dispatch('mode', 'Edit')"
-                                    class="ti ti-tool"></button>
-                                <button x-show="remove != f" @click="remove = f" title="Delete" class="ti ti-trash"></button>
+                                    <button x-show="remove == f" @click="remove = {}" class="ti ti-x"></button>
+                                    <button x-show="remove != f" title="Edit this object"
+                                        @click="selectFeature(f); $dispatch('mode', 'Edit')"
+                                        class="ti ti-tool"></button>
+                                    <button x-show="remove != f" @click="remove = f" title="Delete" class="ti ti-trash"></button>
+                                </div>
                             </div>
                         </template>
-                        <div x-show="features.length == 0" class="noFeatures"><span>No drawings.</span></div>
+                        <div x-show="!$store.features.list.length" class="noFeatures"><span>No drawings.</span></div>
                     </div>
+                </div>
+                <div id="adminView" x-show="$store.mode == 'admin' && $store.logged.admin"
+                                    class="bbr gr" x-data="setupUsers()" x-init="mode = modes[0]">
+                    <button @click="refresh()" class="ti ti-refresh refresh"></button>
+                    <div class="tools-main">
+                        <template x-for="(m,mi) in modes">
+                            <button :class="'ti ti-' + (modeIcon[m] || m) + (m == mode ? ' active' : '')"
+                                @click="mode = m"></button>
+                        </template>
+                    </div>
+                    <span @click="user = {}"
+                        x-show="user && user.Username" x-text="'Selected: ' + user.Username"></span>
+                    <template x-show="mode == 'users'" x-for="(u,i) in users.List">
+                        <div class="userList">
+                            <div class="gr">
+                                <span x-text="u.Username"></span>
+                                <template x-for="(f,fi) in u.Factions">
+                                    <div>
+                                        <small x-text="f"></small>
+                                        <button class="ti ti-x"
+                                                title="f.Name"
+                                                @click="faction(f,u)"></button>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="tools">
+                                <template x-for="(t,ti) in userTools">
+                                    <button @click="tool = t; action(t,u)"
+                                        :title="t.tooltip"
+                                        :class="'ti ti-' + icon(t,u)" ></button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-show="mode == 'factions'" x-for="(f,i) in users.Factions">
+                        <div class="factionList">
+                            <div class="gr">
+                                <span x-text="f.Name || ''"></span>
+                                <template x-for="(u,ui) in (u.Members || [])">
+                                    <div>
+                                        <span x-text="u"></span>
+                                        <button class="ti ti-x"
+                                                @click="faction(f,u)"></button>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="tools">
+                                <template x-for="(t,ti) in factionTools">
+                                    <button @click="tool = t; action(t,f)"
+                                        :class="'ti ti-' + icon(t,f)" ></button>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
                 </div>
                 <span id="copy">&copy; 2021, Flying Caravans.<br /><span>Nieuprawniony dostęp będzie wiązał się z użyciem siły.  Nadmiernej.</span></span>
             </div>
         </div>
         <div id="map" class="cell cell-map map"></div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/@ryangjchandler/spruce@2.x.x/dist/spruce.umd.js"></script>
     <script type="text/javascript" src="/static/map.js"></script>
     <script type="text/javascript" src="/static/script.js"></script>
   </body>

@@ -1,3 +1,5 @@
+.PHONY: ficmap
+
 run:
 	go run .
 
@@ -18,3 +20,12 @@ files:
 
 loop:
 	reflex -d none -g '*.go' -s make run
+
+fzf:
+	cat list | fzf --preview="watch curl -s localhost:3033{1}" --preview-window="down:wrap" \
+		--bind 'ctrl-j:preview:curl -s localhost:3033{1} | jq .' \
+		--bind 'ctrl-v:preview:curl -v -# localhost:3033{1}' \
+		--bind 'pgup:preview-half-page-up' \
+		--bind 'pgdn:preview-half-page-down' \
+		| make fzf
+

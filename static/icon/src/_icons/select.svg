@@ -1,0 +1,8 @@
+---
+tags: [input]
+version: "1.16"
+---
+<svg>
+  <rect x="4" y="4" width="16" height="16" rx="2" />
+  <path d="M9 11l3 3l3 -3" />
+</svg>

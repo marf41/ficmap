@@ -13,6 +13,7 @@
 
 ficmap
 *.sqlite
+*.sqlite.*
 *.db
 
 # Dependency directories (remove the comment below to include it)

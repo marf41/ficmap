@@ -1,23 +1,53 @@
 // var pl = new ol.format.GeoJSON().readFeature({}, { featureProjection: 'EPSG:3857' });
+var warView = new ol.View({ center: [ 2345000.0, 6840000.0 ], zoom: 12 });
+var warExtent = [ 2313000.0, 6870000.0, 2375000.0, 6815000.0 ];
+defControls.push(new ol.control.ZoomToExtent({ label: 'W', tipLabel: 'WARsaw', extent: warExtent }));
+defControls.push(new SidebarControl());
+/*
 window.Spruce.store('selected', []);
 window.Spruce.store('mode', 'Draw');
-window.Spruce.store('logged', { status: '', user: '' });
-window.Spruce.store('features', [], true);
+window.Spruce.store('logged', { status: '', user: '', admin: false });
+window.Spruce.store('features', { list: [] });
 window.Spruce.store('geolocation', { state: false, error: '', coords: [ '', '' ] });
-function locationChange(c) { Spruce.store('geolocation').coords = c; }
+function locationChange(c) { c[0] = roundPlaces(c[0], 6); c[1] = roundPlaces(c[1], 6);
+    Spruce.store('geolocation').coords = c; }
+*/
+/*
 var socket = io();
 socket.on("connect", () => { socket.send("Connect."); console.log("Socket connected."); });
 socket.on("message", data => { console.log(data); });
 socket.on("logged", data => { if (data != 'OK') { Spruce.store('logged').status = 'Wrong user or password.'; } });
+*/
+var raster = new ol.source.Raster({
+    operation: function(pixels, data) {
+        var rgb = pixels[0];
+        var avg = (rgb[0] / 255) + (rgb[1] / 255) + (rgb[2] / 255);
+        avg = avg / 3; var n = .8; var b = .2;
+        n = (1 - avg) * n; if (n < b) { n = b; }
+        return [ 238 * n, 204 * n, 136 * n, 255 ];
+    },
+    sources: [ new ol.source.Stamen({ layer: 'toner' }) ] });
+controls = {};
+raster.on('beforeoperations', function (event) {
+  var data = event.data;
+  for (var id in controls) {
+    data[id] = Number(controls[id].value);
+  }
+});
+var prewar = geoJSONlayer('/static/warszawa-dzielnice.geojson', 'Pre-war Warsaw', 8, [ '#EC8', '#0006' ], [ 6 ]);
+prewar.setVisible(false);
+var pois = geoJSONlayer('/static/poi.geojson', 'POIs', 11, [ '#EC8', '#EC86' ]);
 var map = new ol.Map({
     target: 'map',
     layers: [
-        new ol.layer.Tile({ title: 'OSM', source: new ol.source.OSM(), zIndex: 0 }),
-        warsaw,
+        new ol.layer.Tile({ title: 'OSM', source: new ol.source.OSM(), zIndex: 0, visible: false, type: 'base' }),
+        new ol.layer.Image({ title: 'Pre-war world', zIndex: 1, source: raster, type: 'base', visible: true }),
+        new ol.layer.Vector({ title: 'None', source: new ol.source.Vector(), zIndex: 2, type: 'base', visible: false }),
         poland,
-        new ol.layer.Tile({
-            title: 'Toner', zIndex: 1,
-            source: new ol.source.Stamen({ layer: 'toner' }) }),
+        // warsaw,
+        prewar,
+        geoJSONlayer('/static/war.geojson', 'WARsaw', 9, [ '#EC8', '#0006' ], [ 6 ]),
+        pois,
         drawLayer,
         locationLayer,
         graticule,
@@ -39,7 +69,7 @@ function selectFeatures() {
     // var sfl = document.getElementById('featuresList').__x.$data.selected;
     // var sel = document.getElementById('editList').__x.$data.selected;
     // sfl.length = 0; sel.length = 0;
-    var sel = Spruce.store('selected'); sel.length = 0;
+    var sel = Alpine.store('selected'); sel.length = 0;
     selected.forEach(function(s) { if (!s.units) { s.units = {}; } sel.push(s); })
         // sfl.push(s); sel.push(s); });
 }
@@ -52,7 +82,7 @@ function getData(f) {
     f.coords = []; f.units = {};
     if (geo.getCoordinates) { f.coords = geo.getCoordinates() || []; }
     if (f.coords.length == 1) { f.coords = f.coords[0]; }
-    switch(f.type) {
+    switch(f.Type) {
         case 'Point':
             f.coords = [ f.coords ]; break;
         case 'Circle':
@@ -64,19 +94,24 @@ function getData(f) {
 }
 var draw; var snap;
 function addFeature(ef, value) {
+    if (value == 'Line') { value = 'LineString'; }
     last = ef;
-    ef.type = value;
+    ef.Type = value;
     var icons = {};
     setupTools().toolsSec.forEach(function(t) { icons[t.value] = t.icon; })
-    ef.icon = icons[value];
+    ef.Icon = ef.Icon || icons[value];
+    ef.Color = ef.Color || '#999999';
     ef.info = geometryInfo(ef);
     getData(ef);
-    document.getElementById('featuresList').__x.$data.features.push(ef);
+    // document.getElementById('featuresList').__x.$data.features.push(ef);
+    Alpine.store('features').list.push(ef);
 }
 
 function setupTools() {
     return {
         current: {},
+        hint: '',
+        depthFilter: 2,
         tools: [
             { value: 'None', symbol: '-', icon: 'click', tooltip: 'Select' },
             { value: 'Import', symbol: 'I', icon: 'file-import', tooltip: 'Import Polyline' },
@@ -84,20 +119,30 @@ function setupTools() {
         ],
         toolsSec: [
             { value: 'Point', symbol: 'P', tooltip: 'Point', icon: 'point' },
-            { value: 'LineString', symbol: 'L', show: 'Undo', tooltip: 'Line', icon: 'line' },
+            { value: 'LineString', symbol: 'L', show: 'Undo', tooltip: 'Line', icon: 'line',
+                hint: 'Double-click on last position to end line.' },
             { value: 'Circle', symbol: 'C', icon: 'circle' },
-            { value: 'Polygon', symbol: 'P', show: 'Undo', icon: 'perspective' },
+            { value: 'Polygon', symbol: 'P', show: 'Undo', icon: 'perspective',
+                hint: 'Double-click on last position to end polygon.' },
         ],
+        setTool(tool) {
+            if (tool.value == 'Undo') { draw.removeLastPoint(); return }
+            if (tool.value == 'Import') { importPoly(); return }
+            this.hint = tool.hint || '';
+            addInteraction(tool.value);
+        },
+        toggleGroup(g,e) {
+            var s = e.target.control.checked;
+            Alpine.store('features').list.forEach(function(f) {
+                if (f.GroupName == g.Name) { f.hidden = s; }
+            })
+        },
     }
-}
-function setTool(tool) {
-    if (tool.value == 'Undo') { draw.removeLastPoint(); return }
-    if (tool.value == 'Import') { importPoly(); return }
-    addInteraction(tool.value);
 }
 function removeFeature(f) {
     source.removeFeature(f)
-    var list = document.getElementById('featuresList').__x.$data.features;
+    // var list = document.getElementById('featuresList').__x.$data.features;
+    var list = Alpine.store('features').list;
     var n = list.indexOf(f);
     if (n >= 0) { list.splice(n, 1); }
 }
@@ -114,8 +159,8 @@ function lineLength(l) {
 function geometryInfo(f) {
     var g = f.getGeometry()
     var info = ''; var a; var l;
-    if (f.type == 'LineString') { f.type = 'Line'; }
-    switch (f.type) {
+    if (f.Type == 'LineString') { f.Type = 'Line'; }
+    switch (f.Type) {
         // case 'Circle': var r = g.getRadius(); a = Math.PI * r * r; info = area(a); break;
         // case 'Polygon': a = g.getArea(); info = area(a); break;
         case 'Circle':
@@ -130,35 +175,94 @@ function geometryInfo(f) {
 }
 function selectFeature(f) { var sf = select.getFeatures(); sf.clear(); sf.push(f);
     selected.clear(); selected.push(f); selectFeatures(); }
+
+function remoteUpdate(f, to) {
+    if (to && to < 0 && (!f.Permissions || f.Permissions == 0)) { return; }
+    to = to || f.Permissions
+    var w = new ol.format.Polyline();
+    // var body = { Name: f.Name, Type: f.type, Polyline: w.writeFeature(f, dp),
+        // ID: f.ID, Permissions: f.Permissions };
+    var body = f;
+    body.Polyline = w.writeFeature(f, dp);
+    fetch('/data/pois', { method: to == 0 ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(r => r.text().then(id => {
+            if (r.status == 200) { f.ID = id; selectFeatures();
+                if (!f.OwnerName) { f.OwnerName = Alpine.store('logged').user; }
+                if (to == 0) { f.OwnerName = ""; }
+            } else { window.alert("Object without name can't be saved."); } }));
+}
+
 function setupEdit() {
     return {
+        iconFilter: '',
+        groups: false,
         current: {},
+        icons: false,
         selected: [],
         arrows: {},
         unit: {}, mag: '1',
         units: [ { u: 'm', v: 1 }, { u: 'km', v: 1000 } ],
         arrowIcons: { l: 'caret-left', r: 'caret-right', u: 'caret-up', d: 'caret-down' },
-        className(tool, cat, f, what) {
+        setGroup(f, e) { var g = e.target.value; window.g = g;
+            if (g == "None") { f.GroupName = ""; } else { f.GroupName = g; } },
+        groupsButton(f) {
+            if (f.GroupName) { f.GroupName = null; this.groups = false; }
+            else { this.groups = !this.groups; }
+        },
+        groupClass(f) {
+            var icon = f.GroupName ? 'folder-x' : 'folder';
+            var active = f.GroupName ? ' tool-active' : '';
+            return 'grp ti ti-' + icon + active;
+        },
+        showIcon(ico) { var f = this.iconFilter;
+            if (!f && !f.length) { return true; }
+            return fuzzy(ico, this.iconFilter);
+        },
+        className(tool, cat, f, what, pos) {
             var curr = (f || this)[cat || 'current' ];
             if (!curr && cat && this[cat + 's']) {
                 curr = this[cat + 's'][0]; if (what) { curr = curr[what]; } }
-            var active = curr == (what ? tool[what] : tool) ? 'tool-active ' : '';
+            var cmp = what ? tool[what] : tool;
+            if (pos) {
+                var s = Math.abs(curr).toString()
+                var n = Math.log10(pos[what]);
+                curr = s[s.length - n - 1] || 0;
+            }
+            var active = curr == cmp ? 'tool-active ' : '';
+            if (tool.active && tool.active(f)) { active = 'tool-active '; }
             return active + (tool.icon ? 'ti ti-' + tool.icon : '') },
-        setSave(s, f) {
-            f.save = s.value;
-            selectFeatures();
-        },
+        setSave(g, p, f) {
+            var s = Math.abs(f.Permissions || 0).toString().split('').reverse();
+            var n = Math.log10(g.value);
+            s[n] = s[n] == p.value ? 0 : p.value;
+            for (var i = n - 1; i >= 0; i--) { s[i] = s[i] || 0; }
+            f.Permissions = s.reverse().join('') * 1;
+            // console.log(s, f.Permissions, n, g.value, p.value);
+            remoteUpdate(f); },
         save: {},
+        perms: [
+            { tooltip: 'Me', value: 1, icon: 'user' },
+            { tooltip: 'Faction', value: 10, icon: 'users' },
+            { tooltip: 'Area owner', value: 100, icon: 'shield' },
+            { tooltip: 'Everyone', value: 10000, icon: 'affiliate' }
+        ],
         saves: [
-            { tooltip: 'Not saved', value: 'ns', icon: 'cloud-off' },
-            { tooltip: 'Local save', value: 'local', icon: 'device-desktop' },
-            { tooltip: 'Remote save', value: 'remote', icon: 'bookmark' },
-            { tooltip: 'Faction', value: 'fac', icon: 'users' },
-            { tooltip: 'Public', value: 'public', icon: 'cloud-upload' },
+            { tooltip: 'View', value: 1, icon: 'eye' },
+            { tooltip: 'Edit', value: 2, icon: 'pencil' },
+            { tooltip: 'Delete', value: 4, icon: 'trash' },
         ],
         tools: [
             { value: 'Center view', icon: 'focus-2', action(t,f,e) { centerView(f) } },
-            { value: 'Rename', icon: 'edit', action(t,f,e) { f.name = prompt("New name") || f.name; selectFeatures(); } },
+            { value: 'Rename', icon: 'edit', action(t,f,e) { rename(f) } },
+            { value: 'Set on top', icon: 'arrow-top-bar',
+                action(t,f,e) { f.ZIndex = f.ZIndex > 0 ? 0 : 40; redraw(); },
+                active(f) { return f.ZIndex && f.ZIndex == 40; }
+            },
+            { value: 'Toggle hidden', icon: 'eye-off',
+                action(t,f,e) { f.Hidden = !f.Hidden; redraw(); },
+                active(f) { return f.Hidden }
+            },
             { value: 'Get code', icon: 'code', action(t,f,e) { var c; var r;
                 /*
                 var geo = f.clone().getGeometry(); geo.transform('EPSG:3857', 'EPSG:4326');
@@ -180,7 +284,7 @@ function setupEdit() {
     };
 }
 
-function init() { console.log(Spruce.store("features").length) }
+// function init() { console.log(Spruce.store("features").length) }
 function updateFeature(f,e) {
     if (e && f[e.target.name]) { f[e.target.name] = e.target.value; }
     var geo = f.getGeometry(); var styleTrg; var style = f.style;
@@ -188,7 +292,7 @@ function updateFeature(f,e) {
     f.coords.forEach(function(c) {
         c[0] = roundPlaces(c[0], 6);
         c[1] = roundPlaces(c[1], 6); })
-    switch (f.type) {
+    switch (f.Type) {
         case 'Circle':
             var r = +(f.r);
             if (r <= 0) { f.r = 0.1; r = 0.1; }
@@ -211,6 +315,7 @@ function updateFeature(f,e) {
     f.info = geometryInfo(f);
     // selectFeatures();
     forceUpdate();
+    remoteUpdate(f, -1);
 }
 function moveCoord(f, n, dir, val, unit) {
     if (!f.coords[n]) { return }
@@ -221,12 +326,23 @@ function moveCoord(f, n, dir, val, unit) {
         case 'u': d[1] = +(v); break;
         case 'd': d[1] = -(v); break;
     }
-    ol.coordinate.add(f.coords[n], ol.proj.toLonLat(d))
+    ol.coordinate.add(f.coords[n], ol.proj.toLonLat(d));
     updateFeature(f);
 }
 function forceUpdate() {
-    var sel = Spruce.store('selected'); var e = { units: {}, empty: true }; sel.push(e); sel.splice(sel.indexOf(e), 1);
+    var sel = Alpine.store('selected'); var e = { units: {}, empty: true }; sel.push(e); sel.splice(sel.indexOf(e), 1);
 }
+
+function niceOwner(f) {
+    var logged = Alpine.store('logged')
+    var own = (f.Owner ? f.Owner.Username : '') || f.OwnerName;
+    if (!own) { return 'Added by: You (local)'; }
+    var str = '"' + own + '"'
+    if (f.Owner && f.Owner.Faction && f.Owner.Faction.length) { str += ' from ' + f.Owner.Faction.join(', '); }
+    if (logged.user == own) { str = 'You (' + str + ')'; }
+    return 'Added by: ' + str;
+}
+
 function niceInfo(f) {
     if (!f.area && !f.geoLength) { return '' }
     var kmsq = 1000000; var mmsq = Math.pow(10, 12); var km = 1000; var mm = 1000000;
@@ -280,3 +396,128 @@ function niceInfo(f) {
     }
     return ord;
 }
+
+function loginAs(u) {
+    var logged = Alpine.store('logged');
+    logged.admin = false;
+    logged.user = u;
+    if (u.length) {
+        logged.status = 'Logged as ' + u + '.';
+        fetch('/admin/user').then(r => r.text().then(au => {
+            if (r.status == 200 && u == au) { logged.admin = true; }
+        }));
+        // init(true);
+    } else { logged.status = ''; }
+}
+
+function fetchPost(url, data) {
+    var fd = new FormData(); for (k in data) { fd.append(k, data[k]); }
+    return fetch(url, { method: 'POST', body: fd }); }
+
+function setupUsers() {
+    return {
+        users: { List: [], Factions: [] },
+        defUsers: { List: [], Factions: [] },
+        user: {},
+        mode: [],
+        modeIcon: { factions: 'building' },
+        modes: [ 'users', 'factions' ],
+        tool: {},
+        refresh() { fetch('/admin/users').then(r => r.json()
+            .then(u => { if (r.status == 403) {
+                Alpine.store('logged').admin = false; this.users = defUsers; return; }
+                this.users = u; })); },
+        icon(t, u) {
+            var act = t == this.tool; if (t.active) { act = t.active(u, this, t); }
+            return 'ti ti-' + t.icon + (act ? ' active' : '');
+        },
+        action(t,u) { if (t.action) { t.action(u, this, t); } },
+        faction(f,u) {},
+        userTools: [
+            { icon: 'building', active(u, set) { return set.user == u }, tooltip: 'Faction',
+                action(u, set) { set.user = u; set.mode = 'factions'; } },
+            { icon: 'user-check', active(u) { return u.Confirmed }, tooltip: 'Confirmed',
+                action(u, set) { fetchPost('/admin/confirm', { user: u.Username })
+                        .then(_ => { set.refresh(); }); } },
+            { icon: 'chevrons-up', active(u) { return u.Admin }, tooltip: 'Admin',
+                action(u, set) { fetchPost('/admin/admin', { user: u.Username })
+                        .then(_ => { set.refresh(); }); } },
+        ],
+        factionTools: [
+        ],
+    }
+}
+
+function sidebarButton(e) {
+    var btn = document.getElementById('toggle-sidebar');
+    if (btn) { hide(btn, e); }
+}
+sidebarButton(true);
+
+document.addEventListener('alpine:init', (f,d) => {
+    Alpine.store('selected', []);
+    Alpine.store('sidebar', { open: true });
+    Alpine.store('logged', {  status: '', user: '', admin: false });
+    Alpine.store('features', { list: [], groups: [], tree: {}, flat: [] });
+    Alpine.store('geolocation', { state: false, error: '', coords: [ '', '' ] });
+    // Alpine.store('mode') = 'Draw';
+    window.Alpine = Alpine;
+    init(f,d);
+})
+
+function init(skip, dispatch) {
+    if (!skip) {
+        fetch('/user').then(r => r.text()).then(u => loginAs(u)); }
+    source.forEachFeature(function(f) { removeFeature(f); });
+    fetch('/pois').then(r => r.json()).then(data => {
+        data.List.forEach(function(f) { importPoly(f.Polyline, f); });
+        var ft = Alpine.store('features'); ft.groups = data.Groups;
+        var maxd = -1;
+        ft.groupMap = {}; ft.tree = {}; data.Groups.forEach(function(g) {
+            if (!ft.tree[g.Depth]) { ft.tree[g.Depth] = []; }
+            ft.tree[g.Depth].push(g); ft.groupMap[g.ID] = g;
+            if (g.Depth > maxd) { maxd = g.Depth; }
+        });
+        ft.tree.maxDepth = maxd; ft.flat = [];
+        for (var i = 0; i <= maxd; i++) {
+            ft.tree[i].sort((a, b) => b.Name.localeCompare(a.Name));
+            ft.tree[i].forEach(function(g) {
+                var parentGroup = ft.groupMap[g.ParentID];
+                if (parentGroup) {
+                    var n = ft.flat.indexOf(parentGroup);
+                    if (n >= 0) { ft.flat.splice(n + 1, 0, g); return; }
+                }
+                if (g.Depth > 0) { console.log('No parent: ', g.Name); }
+                ft.flat.push(g);
+            });
+        }
+    });
+    fetch('/static/iconfont-unicode.json').then(r => r.json()).then(data => {
+        var i = []; for (k in data) { i.push(k); } window.icons = i.sort(); });
+    if (dispatch) { dispatch('mode', 'Draw'); }
+}
+
+function getAllPOIs(imp) {
+    fetch('/admin/pois').then(r => r.json()).then(data => {
+        all = data.List; groups = data.Groups; if (imp) {
+            data.List.forEach(function(f) { importPoly(f.Polyline, f); }); }
+    });
+}
+
+function rename(f) {
+    f.Name = prompt("New name", f.Name || '') || f.Name;
+    if (f.Permissions > 0) { remoteUpdate(f); }
+    selectFeatures(); }
+
+function toggleGeolocation() {
+    var g = Alpine.store('geolocation');
+    g.state = !g.state;
+    geolocation.setTracking(g.state);
+}
+function fuzzy(hay, s) {
+    hay = hay.toLowerCase()
+    var i = 0, n = -1, l;
+    s = s.toLowerCase();
+    for (; l = s[i++] ;) if (!~(n = hay.indexOf(l, n + 1))) { return false; }
+    return true;
+};

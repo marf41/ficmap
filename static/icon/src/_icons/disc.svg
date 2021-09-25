@@ -1,0 +1,11 @@
+---
+category: Devices
+tags: [cd, music, album]
+version: "1.0"
+---
+<svg>
+  <circle cx="12" cy="12" r="9" />
+  <circle cx="12" cy="12" r="1" />
+  <path d="M7 12a5 5 0 0 1 5 -5" />
+  <path d="M12 17a5 5 0 0 0 5 -5" />
+</svg>

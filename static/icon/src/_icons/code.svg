@@ -1,0 +1,10 @@
+---
+category: Text
+tags: [brackets, source, programming, command]
+version: "1.0"
+---
+<svg>
+  <polyline points="7 8 3 12 7 16" />
+  <polyline points="17 8 21 12 17 16" />
+  <line x1="14" y1="4" x2="10" y2="20" />
+</svg>

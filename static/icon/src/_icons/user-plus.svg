@@ -1,0 +1,9 @@
+---
+tags: [add, create, new, person, people, follow, subscribe]
+version: "1.0"
+---
+<svg>
+  <circle cx="9" cy="7" r="4" />
+  <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+  <path d="M16 11h6m-3 -3v6" />
+</svg>

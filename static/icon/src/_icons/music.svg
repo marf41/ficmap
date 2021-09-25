@@ -1,0 +1,11 @@
+---
+category: Media
+tags: [sound, mp3, album, sound, speakers, melody]
+version: "1.0"
+---
+<svg>
+  <circle cx="6" cy="17" r="3" />
+  <circle cx="16" cy="17" r="3" />
+  <polyline points="9 17 9 4 19 4 19 17" />
+  <line x1="9" y1="8" x2="19" y2="8" />
+</svg>
