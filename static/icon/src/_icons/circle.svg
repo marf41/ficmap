@@ -1,8 +1,0 @@
----
-category: Shapes
-tags: [off, zero]
-version: "1.0"
----
-<svg>
-  <circle cx="12" cy="12" r="9" />
-</svg>
