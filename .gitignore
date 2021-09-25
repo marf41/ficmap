@@ -18,3 +18,8 @@ ficmap
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+static/icon/icons-png
+static/icon/icons-react
+static/icon/iconfont
+static/icon/.github
